@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onBeforeUnmount } from "vue";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -10,11 +10,18 @@ const files = ref([]);
 const results = ref({});
 const loading = ref(false);
 const noMatches = ref(false);
+const fileUrls = ref({}); // Added for blob URLs
 
 function handleFileChange(event) {
   results.value = {};
   noMatches.value = false;
+  fileUrls.value = {}; // Reset blob URLs
   files.value = Array.from(event.target.files);
+
+  files.value.forEach((file) => {
+    fileUrls.value[file.name] = URL.createObjectURL(file);
+  });
+
   if (keywords.value.length > 0) {
     loading.value = true;
     files.value.forEach(readPDF);
@@ -52,10 +59,7 @@ async function readPDF(file) {
 
       keywords.value.forEach((kw) => {
         if (text.includes(kw.toLowerCase())) {
-          fileMatches.push({
-            page: i + 1,
-            keyword: kw,
-          });
+          fileMatches.push({ page: i + 1, keyword: kw });
         }
       });
     }
@@ -75,6 +79,11 @@ async function readPDF(file) {
   };
   reader.readAsArrayBuffer(file);
 }
+
+// Clean up blob URLs when component unmounts
+onBeforeUnmount(() => {
+  Object.values(fileUrls.value).forEach((url) => URL.revokeObjectURL(url));
+});
 </script>
 
 <template>
@@ -138,7 +147,14 @@ async function readPDF(file) {
           </h3>
           <ul class="list-disc list-inside ml-6 text-gray-700">
             <li v-for="(match, index) in matches" :key="index">
-              <strong>{{ match.keyword }}</strong> on page {{ match.page }}
+              <a
+                :href="fileUrls[fileName] + '#page=' + match.page"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-blue-600 underline hover:text-blue-800"
+              >
+                <strong>{{ match.keyword }}</strong> on page {{ match.page }}
+              </a>
             </li>
           </ul>
         </div>
