@@ -1,5 +1,5 @@
 <script setup>
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from "@vercel/analytics/vue";
 </script>
 
 <template>
