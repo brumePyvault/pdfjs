@@ -10,12 +10,12 @@ const files = ref([]);
 const results = ref({});
 const loading = ref(false);
 const noMatches = ref(false);
-const fileUrls = ref({}); // Added for blob URLs
+const fileUrls = ref({}); // Blob URLs for PDFs
 
 function handleFileChange(event) {
   results.value = {};
   noMatches.value = false;
-  fileUrls.value = {}; // Reset blob URLs
+  fileUrls.value = {};
   files.value = Array.from(event.target.files);
 
   files.value.forEach((file) => {
@@ -52,14 +52,25 @@ async function readPDF(file) {
     for (let i = 0; i < pdf.numPages; i++) {
       const page = await pdf.getPage(i + 1);
       const textContent = await page.getTextContent();
-      const text = textContent.items
-        .map((item) => item.str)
-        .join(" ")
-        .toLowerCase();
+      const rawText = textContent.items.map((item) => item.str).join(" ");
+      const text = rawText.toLowerCase();
 
       keywords.value.forEach((kw) => {
-        if (text.includes(kw.toLowerCase())) {
-          fileMatches.push({ page: i + 1, keyword: kw });
+        const keyword = kw.toLowerCase();
+        let index = text.indexOf(keyword);
+
+        while (index !== -1) {
+          const start = Math.max(0, index - 300);
+          const end = Math.min(rawText.length, index + keyword.length + 300);
+          const snippet = rawText.slice(start, end).replace(/\s+/g, " ").trim();
+
+          fileMatches.push({
+            page: i + 1,
+            keyword: kw,
+            snippet: snippet,
+          });
+
+          index = text.indexOf(keyword, index + keyword.length);
         }
       });
     }
@@ -80,7 +91,6 @@ async function readPDF(file) {
   reader.readAsArrayBuffer(file);
 }
 
-// Clean up blob URLs when component unmounts
 onBeforeUnmount(() => {
   Object.values(fileUrls.value).forEach((url) => URL.revokeObjectURL(url));
 });
@@ -146,7 +156,7 @@ onBeforeUnmount(() => {
             {{ fileName }}
           </h3>
           <ul class="list-disc list-inside ml-6 text-gray-700">
-            <li v-for="(match, index) in matches" :key="index">
+            <li v-for="(match, index) in matches" :key="index" class="mb-2">
               <a
                 :href="fileUrls[fileName] + '#page=' + match.page"
                 target="_blank"
@@ -155,6 +165,9 @@ onBeforeUnmount(() => {
               >
                 <strong>{{ match.keyword }}</strong> on page {{ match.page }}
               </a>
+              <p class="text-gray-600 mt-1 text-sm italic">
+                “{{ match.snippet }}...”
+              </p>
             </li>
           </ul>
         </div>
