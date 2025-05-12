@@ -91,6 +91,15 @@ async function readPDF(file) {
   reader.readAsArrayBuffer(file);
 }
 
+function highlightKeyword(snippet, keyword) {
+  const regex = new RegExp(`(${keyword})`, "gi");
+  const highlighted = snippet.replace(
+    regex,
+    `<strong class="text-black font-bold">$1</strong>`
+  );
+  return `“${highlighted}...”`;
+}
+
 onBeforeUnmount(() => {
   Object.values(fileUrls.value).forEach((url) => URL.revokeObjectURL(url));
 });
@@ -165,9 +174,10 @@ onBeforeUnmount(() => {
               >
                 <strong>{{ match.keyword }}</strong> on page {{ match.page }}
               </a>
-              <p class="text-gray-600 mt-1 text-sm italic">
-                “{{ match.snippet }}...”
-              </p>
+              <p
+                class="text-gray-600 mt-1 text-sm italic"
+                v-html="highlightKeyword(match.snippet, match.keyword)"
+              ></p>
             </li>
           </ul>
         </div>
